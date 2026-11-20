@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Syntax
+        run: for f in server/*.js client/qbit.js client/qbit-node.js client/common.js test/*.cjs; do node --check "$f"; done
+      - name: End-to-end (real ML-DSA signatures against an in-process node)
+        run: npm test
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
