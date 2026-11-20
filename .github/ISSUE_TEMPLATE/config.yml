@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/QBITL1/qbit/security/advisories/new
+    about: Report a vulnerability privately. Please do not open a public issue.
+  - name: Docs
+    url: https://qbitl1.org/docs
+    about: Reference and guides.
