@@ -1,0 +1,14 @@
+{
+  "name": "qbit",
+  "version": "0.1.0",
+  "description": "QBIT: a quantum-resistant layer 1. Every block, attestation and transaction signed with ML-DSA (FIPS 204).",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node test/e2e-launchpad.cjs"
+  }
+}

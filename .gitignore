@@ -1,0 +1,7 @@
+node_modules
+data.json
+_studio/
+brand/
+.env
+data.json.bak
+data.json.tmp
