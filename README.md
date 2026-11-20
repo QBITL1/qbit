@@ -2,7 +2,7 @@
 
 [![license](https://img.shields.io/badge/license-MIT-c8ccd2)](LICENSE) [![node](https://img.shields.io/badge/node-%E2%89%A5%2024-c8ccd2)](.node-version) [![dependencies](https://img.shields.io/badge/dependencies-0-c8ccd2)](package.json)
 
-**[qbitl1.org](https://qbitl1.org)** · [Docs](https://qbitl1.org/docs) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
+**[qbitl1.org](https://qbitl1.org)** · [Docs](https://qbitl1.org/docs) · [X](https://x.com/QBITL1) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 
 [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 
