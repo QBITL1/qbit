@@ -1,0 +1,9 @@
+.git
+.github
+_studio
+brand
+test
+node_modules
+data.json*
+.env
+*.md
