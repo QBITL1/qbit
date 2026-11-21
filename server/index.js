@@ -36,6 +36,9 @@ const save = () => { if (!dirty || saving) return; dirty = false; saving = true;
 setInterval(save, 15000);
 // a deploy or restart sends SIGTERM: write the state once more, synchronously, before leaving
 let leaving = false; for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { if (leaving) return; leaving = true; try { fs.writeFileSync(TMP, JSON.stringify(S)); swap(); console.log('state saved on', sig, '· height', S.height); } catch (x) { console.error('final save failed', x.message); } process.exit(0); });
+// one bad request or a failed timer must never stop the chain: log it and keep producing blocks
+process.on('uncaughtException', (e) => console.error('uncaught', e && e.stack || e));
+process.on('unhandledRejection', (e) => console.error('unhandled', e && e.stack || e));
 const acct = (a) => S.accounts[a] || (S.accounts[a] = { bal: 0, nonce: 0, pub: null, txs: 0 });
 let mempool = [];
 
@@ -363,7 +366,8 @@ function stats() {
 }
 http.createServer(async (req, res) => {
   if (req.url.startsWith('/scan/')) { req.url = '/scan'; }
-  const u = new URL(req.url, 'http://x'), p = u.pathname;
+  let u; try { u = new URL(req.url, 'http://x'); } catch { res.writeHead(400); return res.end('bad request'); }
+  const p = u.pathname;
   try {
     if (p === '/api/stats') return send(res, 200, stats());
     if (p === '/api/blocks') { const n = Math.min(50, +u.searchParams.get('n') || 20); return send(res, 200, S.blocks.slice(-n).reverse().map(slim)); }
@@ -441,5 +445,5 @@ http.createServer(async (req, res) => {
     // pages and scripts carry the site's own address and X link, filled in as they are served
     if (ext === '.html' || ext === '.js') { const origin = SITE_URL || (req.headers['x-forwarded-proto'] || 'http') + '://' + req.headers.host; res.writeHead(200, { 'content-type': type, 'cache-control': 'no-cache' }); return res.end(fs.readFileSync(fp, 'utf8').replaceAll('https://qbitl1.org', origin).replaceAll('{{X_URL}}', X_URL).replaceAll('{{GH_URL}}', GH_URL)); }
     res.writeHead(200, { 'content-type': type }); fs.createReadStream(fp).pipe(res);
-  } catch (e) { send(res, 500, { error: String(e.message || e) }); }
+  } catch (e) { try { if (res.headersSent) res.end(); else send(res, 500, { error: String(e.message || e) }); } catch {} }
 }).listen(PORT, () => console.log('QBIT testnet on :' + PORT, 'height', S.height));
