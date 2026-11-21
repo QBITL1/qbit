@@ -5,4 +5,4 @@ COPY server ./server
 COPY client ./client
 ENV NODE_ENV=production PORT=8080
 EXPOSE 8080
-CMD ["node", "server/index.js"]
+CMD ["node", "--max-old-space-size=160", "server/index.js"]

@@ -5,7 +5,7 @@ const http = require('http'), fs = require('fs'), path = require('path'), crypto
 const PORT = +process.env.PORT || 8310;
 const DATA = process.env.DATA_PATH || path.join(__dirname, '..', 'data.json');
 const CLIENT = path.join(__dirname, '..', 'client');
-const SLOT_MS = 4000, FAUCET_AMT = 1000, FAUCET_COOLDOWN = 3600e3, FEE = 0.001, KEEP_BLOCKS = 4000;
+const SLOT_MS = 4000, FAUCET_AMT = 1000, FAUCET_COOLDOWN = 3600e3, FEE = 0.001, KEEP_BLOCKS = +process.env.KEEP_BLOCKS || 300;
 const QBIT_MINT = process.env.QBIT_MINT || '', absUrl = (u) => { u = (u || '').trim(); return u && !/^https?:\/\//i.test(u) ? 'https://' + u.replace(/^\/+/, '') : u; }, SITE_URL = absUrl(process.env.SITE_URL).replace(/\/$/, ''), X_URL = absUrl(process.env.X_URL), GH_URL = absUrl(process.env.GH_URL); // no accounts yet: the buttons appear once these are set
 
 const sha3 = (b) => crypto.createHash('sha3-256').update(b).digest('hex');
@@ -25,7 +25,14 @@ function fresh() {
   return { genesis: Date.now(), height: 0, blocks: [], accounts: {}, faucet: {}, txIndex: {}, validators: vals, totalTx: 0, sigsVerified: 0 };
 }
 // load the newest state file that parses: the live one, else the previous generation. A half-written file must never restart the chain.
-const readState = (p) => { try { const o = JSON.parse(fs.readFileSync(p, 'utf8')); return o && o.blocks && o.accounts ? o : null; } catch { return null; } };
+// every block carries four ML-DSA signatures (about 27 KB), so a long history is the whole memory bill. A state file written with a longer
+// history is cut down to the newest KEEP_BLOCKS blocks at the byte level before it is parsed, so loading it never needs more memory than running does.
+const trimBlocks = (b) => { const key = Buffer.from('"blocks":['), i = b.indexOf(key); if (i < 0) return b; const starts = []; let depth = 0, str = false, end = -1;
+  for (let p = i + key.length; p < b.length; p++) { const c = b[p]; if (str) { if (c === 92) p++; else if (c === 34) str = false; continue; } if (c === 34) { str = true; continue; }
+    if (c === 123 || c === 91) { if (!depth) starts.push(p); depth++; } else if (c === 125 || c === 93) { if (!depth) { end = p; break; } depth--; } }
+  if (end < 0 || starts.length <= KEEP_BLOCKS) return b; console.log('state: keeping the newest', KEEP_BLOCKS, 'of', starts.length, 'blocks');
+  return Buffer.concat([b.subarray(0, i + key.length), b.subarray(starts[starts.length - KEEP_BLOCKS], end), b.subarray(end)]); };
+const readState = (p) => { try { const o = JSON.parse(trimBlocks(fs.readFileSync(p)).toString('utf8')); return o && o.blocks && o.accounts ? o : null; } catch { return null; } };
 S = readState(DATA) || readState(DATA + '.bak');
 if (S) console.log('state loaded · height', S.height); else { if (fs.existsSync(DATA)) { try { fs.renameSync(DATA, DATA + '.unreadable-' + Date.now()); } catch {} console.error('state file unreadable: kept aside, starting a new chain'); } S = fresh(); }
 const skCache = new Map(); const skOf = (v) => skCache.get(v.addr) || (skCache.set(v.addr, crypto.createPrivateKey(v.sk)), skCache.get(v.addr));
@@ -37,7 +44,7 @@ setInterval(save, 15000);
 // a deploy or restart sends SIGTERM: write the state once more, synchronously, before leaving
 let leaving = false; for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { if (leaving) return; leaving = true; try { fs.writeFileSync(TMP, JSON.stringify(S)); swap(); console.log('state saved on', sig, '· height', S.height); } catch (x) { console.error('final save failed', x.message); } process.exit(0); });
 // one bad request or a failed timer must never stop the chain: log it and keep producing blocks
-process.on('uncaughtException', (e) => console.error('uncaught', e && e.stack || e));
+process.on('uncaughtException', (e) => { console.error('uncaught', e && e.stack || e); if (e && (e.code === 'EADDRINUSE' || e.code === 'EACCES')) process.exit(1); });
 process.on('unhandledRejection', (e) => console.error('unhandled', e && e.stack || e));
 const acct = (a) => S.accounts[a] || (S.accounts[a] = { bal: 0, nonce: 0, pub: null, txs: 0 });
 let mempool = [];
